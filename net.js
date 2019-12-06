@@ -3,6 +3,9 @@
     //THINK ABOUT USING FOR OF LOOPS
     //RENAME VARIABLES AND COMMENT CODE
 
+//SHOULD BE USING FLOAT ARRAYS INSTEAD OF REGULAR ARRAYS SINCE THEYRE WAY MORE MEMORY EFFICIENT
+    //uhhh I dont think theyre resizable but I think the only time I use that feature is pushing the bias so its probably doable
+
 "use strict";
 
 
@@ -27,8 +30,8 @@ function Net(neuronCounts) {
         let numOutputs = neuronCounts[layerNum];
         let weightMatrix = new Array(numOutputs); //make each row the inputs to a single neuron so that summing is easier
         for (let row = 0; row < weightMatrix.length; row ++) {
-            newWeights = new Array(numInputs); //all the weights for a single output neuron
-            for (weightNum = 0; weightNum < numInputs; weightNum ++) { //make one weight for every input->output
+            let newWeights = new Array(numInputs); //all the weights for a single output neuron
+            for (let weightNum = 0; weightNum < numInputs; weightNum ++) { //make one weight for every input->output
                 newWeights[weightNum] = Math.random() * 2 - 1; //init weights to be from -1 to 1
             }
             weightMatrix[row] = newWeights;
@@ -65,10 +68,10 @@ function Net(neuronCounts) {
 
 
 function maxElementIndex(ary) {
-    maxIndex = 0;
-    for ([index, element] of ary.entries()) {
+    let maxIndex = 0;
+    for (let [index, element] of ary.entries()) {
         if (element > ary[maxIndex]) {
-            maxIndex = element;
+            maxIndex = index;
         }
     }
     return maxIndex;
@@ -80,36 +83,64 @@ function Agent(runnerInstance) {
 
     this.runnerInstance = runnerInstance;
     this.canvas = runnerInstance.canvas;
-    this.network = new Net([this.canvas.width * this.canvas.height * 4, 3]);
-    this.fitness = 0;
+    this.network = new Net([this.canvas.width * this.canvas.height, 3]);
+    this.fitness = undefined;
     this.canvasContext = this.canvas.getContext('2d');
+    this.keys = {
+        UP: {keyCode: 32},
+        DOWN: {keyCode: 40},
+        NONE: {}
+    }
+    this.currentKey = this.keys.NONE
 
-
-    this.actions = { //maps network outputs to actions
-        0: () => { // release keys
-
-        }, 
-        1: () => { //hold up
-            if (! this.ducking) { //can only jump when not ducking
-                this.jumping = true;
-            }
-        },
-        2: () => { //hold down
-            this.jumping = false;
+    this.dispatchRunnerKeyEvent = (eventType, key) => {
+        if (key != this.keys.NONE) { //don't need to make an event if key is NONE
+            this.runnerInstance.handleEvent(new KeyboardEvent(eventType, key));
         }
+    }
+
+    this.holdKey = keyType => {
+        if (keyType != this.currentKey) {
+            console.log(keyType);
+            this.dispatchRunnerKeyEvent("keyup", this.currentKey); //release current held key
+            this.dispatchRunnerKeyEvent("keydown", keyType); //press new key
+            this.currentKey = keyType;
+        }
+    }
+
+    this.actions = { //maps neural network outputs to actions
+        0: () => this.holdKey(this.keys.NONE), 
+        1: () => this.holdKey(this.keys.UP),
+        2: () => this.holdKey(this.keys.DOWN)
+    }
+
+
+    this.getCanvasData = canvasContext => {
+        let rawData = canvasContext.getImageData(0, 0, this.canvas.width, this.canvas.height).data;
+        let data = new Array(this.canvas.width * this.canvas.height);
+        for (let d = 0; d < rawData.length; d +=4 ) {
+            data[d/4] = (rawData[d] + rawData[d+1] + rawData[d+2]) / 3;
+        }
+        return data;
     }
 
 
     this.play = () => {
         this.runnerInstance.restart();
-        startTime = new Date().getTime();
-        while (! this.runnerInstance.crashed) {
-            let imageData = this.canvasContext.getImageData(0, 0, this.canvas.width, this.canvas.height);
-            let decisions = this.network.feed(imageData.data);
-            let choice = maxElementIndex(decisions);
-            this.actions[choice]()
-        }
-        this.fitness = new Date().getTime() - startTime; //fitness = time alive
+        let startTime = new Date().getTime();
+        let agent = this;
+        let playLoop = window.setInterval(() => {
+            if (! this.runnerInstance.crashed) {
+                let imageData = agent.getCanvasData(this.canvasContext);
+                let decisions = agent.network.feed(imageData);
+                let choice = maxElementIndex(decisions);
+                agent.actions[choice]()
+            } 
+            else {
+                agent.fitness = new Date().getTime() - startTime; //fitness = time alive
+                window.clearInterval(playLoop);
+            }
+        }, 100);
     }
 
 
@@ -125,4 +156,28 @@ function Agent(runnerInstance) {
 
 
 
-a = new Agent(Runner.instance_);
+
+function displayEvolutionInfo(generationNum, agentNum, totalAgents) {
+    var generation = document.getElementById("generation");
+    var agentCounter = document.getElementById("agentCounter");
+    if (generation === null || agentCounter === null) {
+        generation = document.createElement("h2");
+        agentCounter = document.createElement("h2");
+        for (let element of [generation, agentCounter]) {
+            document.body.appendChild(element);
+            element.style.position = "absolute";
+            element.style.left = "5px";
+        }
+        generation.id = "generation";
+        agentCounter.id = "agentCounter";
+        generation.style.top = "10px";
+        agentCounter.style.top = "30px";
+    }
+    generation.innerText = `Generation: ${generationNum}`;
+    agentCounter.innerText = `Agent: ${agentNum}/${totalAgents}`;
+}
+
+
+let a = new Agent(Runner.instance_);
+a.play();
+displayEvolutionInfo(1, 1, 1);
