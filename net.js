@@ -1,5 +1,4 @@
 //MAKE SURE NET WORKS AND STUFF
-    //SHOULD ADD ERROR HANDLING FOR INCORRECT LENGTH OF ARRAYS BEING PASSED
     //THINK ABOUT USING FOR OF LOOPS
     //RENAME VARIABLES AND COMMENT CODE
 
@@ -18,6 +17,14 @@
 //WANNA PRINT GENERATION FOR EACH BEST SCORE BUT ITS PRETTY HARD
 //KEEP TRACK OF TOTAL FITNESS FOR A WHOLE GENERATION SO YOU CAN CHECK IF ITS ACTUALLY LEARNING MORE EASILY
 //maybe breed half mutants and half clean combinations?
+//maybe just try more breedables?
+//maybe try out way more guys before breeding the top 5?
+//TRY MAKING THE BEST AGENTS BREED MORE THAN THE MEH ONES THAT STILL MADE IT INTO THE BREEDABLE GROUP
+//GIVE IT A MULTI LAYER BRAIN??
+//AGENTS THAT DO WELL IN ONE GEN GET COMPLETELY FRICKED THE NEXT GEN... WHY?
+    //TRY MAKING A NET BY HAND THAT WILL JUMP WHEN A SPECIFIC SET OF PIXELS ARE BLACK AND MAKING SURE IT WORKS
+//MAKE AGENTS LOOK AT ONLY A SMALL PORTION OF THE PIXELS TO REDUCE NOISE (kinda cheating but whatever)
+//WOULD BE COOL IF YOU VISUALIZED WHAT THE AGENTS SAW (ie color in all the pixels that correspond to weights that make it jump)
 
 
 "use strict";
@@ -199,10 +206,10 @@ function Agent(runnerInstance) {
 
 
 
-const MUTATION_RATE = 0.05 //0.03 (tried after mutation was fixed); //0.05 (never tried); //0 (og, got 210);
-const MUTATION_AMOUNT = 0.1 //0.05; //0.2; //0;
-const AGENTS_PER_GEN = 30;
-const BREEDABLE_AGENTS_RATIO = 1/6;
+const MUTATION_RATE = 0.05 //0.2 (to try higher mutation r8) //0.05 (after mutation was changed to fixed amount) //0.03 (tried after mutation was fixed); //0.05 (never tried); //0 (og, got 210);
+const MUTATION_AMOUNT = 0.1 //0.1 //0.1 //0.05; //0.2; //0;
+const AGENTS_PER_GEN = 100;
+const BREEDABLE_AGENTS_RATIO = 1/20 //1/6 (5/30); //1/3; //1/6;
 const BREEDABLE_AGENTS_PER_GEN = Math.floor(AGENTS_PER_GEN * BREEDABLE_AGENTS_RATIO);
 const CHILDREN_PER_GEN = AGENTS_PER_GEN - BREEDABLE_AGENTS_PER_GEN;
 
@@ -231,11 +238,15 @@ function printFitnessInfo(fitness) {
     console.log(`Fitness: ${fitness}`);
 }
 
-function printBestScores(bestAgents) {
+function printGenerationSummary(bestAgents, currentAgents) {
     console.log("Best scores:")
     bestAgents.forEach(agent => {
         console.log(agent.fitness);
     });
+    let totalScore = currentAgents.reduce((total, agent) => {
+        return total + agent.fitness;
+    }, 0);
+    console.log(`Score total: ${totalScore}\n `);
 }
 
 
@@ -244,6 +255,7 @@ function randomChoice(ary) {
 }
 
 
+/*
 async function trainingLoop(currentAgents) {
     let bestAgents = [];
     let generation = 1;
@@ -260,6 +272,33 @@ async function trainingLoop(currentAgents) {
         bestAgents = allAgents.slice(0, BREEDABLE_AGENTS_PER_GEN);
         printBestScores(bestAgents);
         currentAgents = [];
+        for (let childNum = 0; childNum < CHILDREN_PER_GEN; childNum ++) {
+            let parent1 = randomChoice(bestAgents);
+            let parent2 = randomChoice(bestAgents);
+            while (parent2 == parent1) { //make sure parents aren't the same
+                parent2 = randomChoice(bestAgents);
+            }
+            currentAgents.push(parent1.breed(parent2, MUTATION_RATE, MUTATION_AMOUNT));
+        }
+        generation ++;
+    }
+}
+*/
+
+async function trainingLoop(currentAgents) {
+    let generation = 1;
+    while (true) {
+        for (let [agentNum, agent] of currentAgents.entries()) {
+            printAgentInfo(generation, agentNum + 1, currentAgents.length);
+            await agent.play();
+            printFitnessInfo(agent.fitness)
+        }
+        currentAgents.sort((agent1, agent2) => { //sort agents in ascending order
+            return agent2.fitness - agent1.fitness;
+        })
+        let bestAgents = currentAgents.slice(0, BREEDABLE_AGENTS_PER_GEN);
+        printGenerationSummary(bestAgents, currentAgents);
+        currentAgents = Array.from(bestAgents);
         for (let childNum = 0; childNum < CHILDREN_PER_GEN; childNum ++) {
             let parent1 = randomChoice(bestAgents);
             let parent2 = randomChoice(bestAgents);
