@@ -105,7 +105,9 @@ function Agent(runnerInstance) {
 
     this.runnerInstance = runnerInstance;
     this.canvas = runnerInstance.canvas;
-    this.network = new Net([this.canvas.width * this.canvas.height, 3]);
+    this.visionWidth = Math.floor(this.canvas.width / RESOLUTION_DIVISION);
+    this.visionHeight = Math.floor(this.canvas.height / RESOLUTION_DIVISION);
+    this.network = new Net([this.visionWidth * this.visionHeight, 3]);
     this.fitness = undefined;
     this.canvasContext = this.canvas.getContext('2d');
     this.keys = {
@@ -136,23 +138,66 @@ function Agent(runnerInstance) {
     }
 
 
-    this.getCanvasData = canvasContext => {
-        let rawData = canvasContext.getImageData(0, 0, this.canvas.width, this.canvas.height).data;
-        let data = new Array(this.canvas.width * this.canvas.height);
-        for (let d = 0; d < rawData.length; d +=4 ) {
-            data[d/4] = rawData[d+3]; //agent only sees alpha channel of pixels (makes cacti completely black, simplifies colors)
+    this.generateSurroundingCoords = function* (x, y, canvas) {
+        for (let yOffset = -1; yOffset <= 1; yOffset ++) {
+            for (let xOffset = -1; xOffset <= 1; xOffset ++) {
+                let surroundingX = x + xOffset;
+                let surroundingY = y + yOffset;
+                if (surroundingX >= 0 && surroundingY >= 0 &&
+                surroundingX < canvas.width && surroundingY < canvas.height) {
+                    yield [surroundingX, surroundingY];
+                }
+            }
+        }
+    }
+
+
+    this.coordToAlphaIndex = (x, y, width) => {
+        return (y * width * BYTES_PER_PIXEL) + 
+            (x * BYTES_PER_PIXEL) + ALPHA_CHANNEL_BYTE;
+    }
+    
+
+    this.getCanvasData = canvas => {
+        let canvasContext = canvas.getContext('2d');
+        let rawData = canvasContext.getImageData(0, 0, canvas.width, canvas.height).data;
+        let data = new Array(this.visionWidth * this.visionHeight);
+        let newIndex = 0;
+        const strideLength = RESOLUTION_DIVISION; //move 3 pixels every time before looking at surrounding pixels
+        const initialOffset = 1; //start with an offset to avoid edges
+        for (let y = initialOffset; y < this.visionHeight * RESOLUTION_DIVISION; y += strideLength) {
+            for (let x = initialOffset; x < this.visionWidth * RESOLUTION_DIVISION; x += strideLength) {
+                let total = 0;
+                let surroundingCoords = this.generateSurroundingCoords(x, y, canvas);
+                for (let [surroundingX, surroundingY] of surroundingCoords) {
+                    let surroundingIndex = this.coordToAlphaIndex(surroundingX, surroundingY, canvas.width);
+                    total += rawData[surroundingIndex];
+                }
+                let averageColor = total / (RESOLUTION_DIVISION*RESOLUTION_DIVISION);
+                data[newIndex] = averageColor;
+                newIndex ++;
+            }
         }
         return data;
     }
 
 
+    this.netInputToCanvasData = (input, canvas) => {
+        let imgData = canvas.getContext('2d').createImageData(this.visionWidth, this.visionHeight);
+        for (let [pixelNum, color] of input.entries()) {
+            imgData.data[pixelNum * BYTES_PER_PIXEL + ALPHA_CHANNEL_BYTE] = color;
+        }
+        return imgData;
+    }
+
+
     this.play = () => {
         let agent = this;
-        return new Promise(function(callback) {
+        return new Promise(callback => {
             agent.runnerInstance.restart();
             let playLoop = window.setInterval(() => {
                 if (! agent.runnerInstance.crashed) {
-                    let imageData = agent.getCanvasData(agent.canvasContext);
+                    let imageData = agent.getCanvasData(agent.canvas);
                     let decisions = agent.network.feed(imageData);
                     let choice = maxElementIndex(decisions);
                     agent.actions[choice]()
@@ -206,6 +251,9 @@ function Agent(runnerInstance) {
 
 
 
+const BYTES_PER_PIXEL = 4;
+const ALPHA_CHANNEL_BYTE = 3; //last byte of 4 pixel bytes is the alpha channel
+const RESOLUTION_DIVISION = 3; //dino sees 3x3 = 9x less pixels than the game contains
 
 const MUTATION_RATE = 0.05; //0.05 (trying out big changes with 100 agents per gen) //0.05 //0.2 (to try higher mutation r8) //0.05 (after mutation was changed to fixed amount) //0.03 (tried after mutation was fixed); //0.05 (never tried); //0 (og, got 210);
 const MUTATION_AMOUNT = 0.1; //0.25 //0.1 //0.1 //0.1 //0.05; //0.2; //0;
@@ -281,6 +329,7 @@ async function trainingLoop(currentAgents) {
         generation ++;
     }
 }
+
 
 
 (function() {
