@@ -203,9 +203,9 @@ function Agent(runnerInstance) {
                     agent.actions[choice]()
                 } 
                 else {
-                    agent.fitness = agent.runnerInstance.distanceRan;
+                    let fitness = agent.runnerInstance.distanceRan;
                     window.clearInterval(playLoop);
-                    callback();
+                    callback(fitness);
                 }
             }, 100);
         });
@@ -257,10 +257,11 @@ const RESOLUTION_DIVISION = 3; //dino sees 3x3 = 9x less pixels than the game co
 
 const MUTATION_RATE = 0.05; //0.05 (trying out big changes with 100 agents per gen) //0.05 //0.2 (to try higher mutation r8) //0.05 (after mutation was changed to fixed amount) //0.03 (tried after mutation was fixed); //0.05 (never tried); //0 (og, got 210);
 const MUTATION_AMOUNT = 0.1; //0.25 //0.1 //0.1 //0.1 //0.05; //0.2; //0;
-const AGENTS_PER_GEN = 100;
-const BREEDABLE_AGENTS_RATIO = 1/20 //1/6 (5/30); //1/3; //1/6;
+const AGENTS_PER_GEN = 30;
+const BREEDABLE_AGENTS_RATIO = 1/3; //1/20 //1/6 (5/30); //1/3; //1/6;
 const BREEDABLE_AGENTS_PER_GEN = Math.floor(AGENTS_PER_GEN * BREEDABLE_AGENTS_RATIO);
 const CHILDREN_PER_GEN = AGENTS_PER_GEN - BREEDABLE_AGENTS_PER_GEN;
+const ROUNDS_PER_AGENT = 3;
 
 
 function printAgentInfo(generationNum, agentNum, totalAgents) {
@@ -309,7 +310,11 @@ async function trainingLoop(currentAgents) {
     while (true) {
         for (let [agentNum, agent] of currentAgents.entries()) {
             printAgentInfo(generation, agentNum + 1, currentAgents.length);
-            await agent.play();
+            let fitness = 0;
+            for (let round = 0; round < ROUNDS_PER_AGENT; round ++) {
+                fitness += await agent.play();
+            }
+            agent.fitness = fitness;
             printFitnessInfo(agent.fitness)
         }
         currentAgents.sort((agent1, agent2) => { //sort agents in ascending order
