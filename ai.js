@@ -26,6 +26,12 @@
     //TRY MAKING A NET BY HAND THAT WILL JUMP WHEN A SPECIFIC SET OF PIXELS ARE BLACK AND MAKING SURE IT WORKS
 //MAKE AGENTS LOOK AT ONLY A SMALL PORTION OF THE PIXELS TO REDUCE NOISE (kinda cheating but whatever)
 //WOULD BE COOL IF YOU VISUALIZED WHAT THE AGENTS SAW (ie color in all the pixels that correspond to weights that make it jump)
+//IF SPLITTING CROSSOVER AND MUTATION UP DOESNT WORK THEN CRRRRANK UP THE MUTATION TO LIKE 50%
+    //makes sense if you think of how many weights crossover effects every time vs how many mutation effects every time
+//HOLY MOLY THE CRANK WORKED, LETS TRY TO CRANK IT EVEN HIGHER
+    //TRY MUTATING 100% OF WEIGHTS INSTEAD OF 50%
+    //try mutating by a fixed rate (like 0.2) for small values, but for larger values (>1 or something) you should multiple by 1.5
+
 
 
 "use strict";
@@ -212,6 +218,22 @@ function Agent(runnerInstance) {
     }
 
 
+    this.createNewAgent = geneticOperator => {
+        let child = new Agent(this.runnerInstance);
+        for (let layerNum = 0; layerNum < this.network.weights.length; layerNum ++) {
+            let numOutputs = this.network.weights[layerNum].length;
+            for (let outputNum = 0; outputNum < numOutputs; outputNum ++) {
+                let numWeights = this.network.weights[layerNum][outputNum].length;
+                for (let weightNum = 0; weightNum < numWeights; weightNum ++) {
+                    let newWeight = geneticOperator(layerNum, outputNum, weightNum)
+                    child.network.weights[layerNum][outputNum][weightNum] = newWeight;
+                }
+            }
+        }
+        return child;
+    }
+
+
     this.breed = (otherAgent, mutationRate, mutationAmount) => {
 
         if (this.network.weights[0].length != otherAgent.network.weights[0].length ||
@@ -220,32 +242,53 @@ function Agent(runnerInstance) {
             throw new Error("Agent weights must have exact same dimensionality to breed");
         }
 
-        let child = new Agent(this.runnerInstance);
-        for (let layerNum = 0; layerNum < this.network.weights.length; layerNum ++) {
-            let numOutputs = this.network.weights[layerNum].length;
-            for (let outputNum = 0; outputNum < numOutputs; outputNum ++) {
-                let numWeights = this.network.weights[layerNum][outputNum].length;
-                for (let weightNum = 0; weightNum < numWeights; weightNum ++) {
-                    let weight;
+        let getCrossoverWeight = this.createCrossoverOperator(otherAgent);
+        return this.createNewAgent((layerNum, outputNum, weightNum) => {
+            let weight = getCrossoverWeight(layerNum, outputNum, weightNum);
+            if (Math.random() < mutationRate) { //mutate the gene
+                let mutationSign = Math.random() < 0.5 ? -1 : 1;
+                //weight += mutationSign * weight * mutationAmount;
+                weight += mutationSign * mutationAmount;
+            }
+            return weight;
+        });
+    }
 
-                    if (Math.random() < 0.5) { //choose parent for gene
-                        weight = this.network.weights[layerNum][outputNum][weightNum];
-                    } else {
-                        weight = otherAgent.network.weights[layerNum][outputNum][weightNum];
-                    }
+    
+    this.createMutationOperator = (mutationRate, mutationAmount) => {
+        let thisAgent = this;
+        return (layerNum, outputNum, weightNum) => {
+            let weight = thisAgent.network.weights[layerNum][outputNum][weightNum];
+            if (Math.random() < mutationRate) { //mutate the gene
+                let mutationSign = Math.random() < 0.5 ? -1 : 1;
+                //weight += mutationSign * weight * mutationAmount;
+                weight += mutationSign * mutationAmount;
+            }
+            return weight;
+        }
+    }
 
-                    if (Math.random() < mutationRate) { //mutate the gene
-                        let mutationSign = Math.random() < 0.5 ? -1 : 1;
-                        //weight += mutationSign * weight * mutationAmount;
-                        weight += mutationSign * mutationAmount;
-                    }
-                    
-                    child.network.weights[layerNum][outputNum][weightNum] = weight;
-                }
+
+    this.createCrossoverOperator = otherAgent => {
+        let thisAgent = this;
+        return (layerNum, outputNum, weightNum) => {
+            if (Math.random() < 0.5) { //choose parent for gene
+                return thisAgent.network.weights[layerNum][outputNum][weightNum];
+            } else {
+                return otherAgent.network.weights[layerNum][outputNum][weightNum];
             }
         }
+    }
 
-        return child;
+
+    this.crossover = (otherAgent) => {
+        let operator = this.createCrossoverOperator(otherAgent);
+        return this.createNewAgent(operator);
+    }
+
+    this.mutate = (mutationRate, mutationAmount) => {
+        let operator = this.createMutationOperator(mutationRate, mutationAmount);
+        return this.createNewAgent(operator);
     }
 }
 
@@ -255,8 +298,8 @@ const BYTES_PER_PIXEL = 4;
 const ALPHA_CHANNEL_BYTE = 3; //last byte of 4 pixel bytes is the alpha channel
 const RESOLUTION_DIVISION = 3; //dino sees 3x3 = 9x less pixels than the game contains
 
-const MUTATION_RATE = 0.05; //0.05 (trying out big changes with 100 agents per gen) //0.05 //0.2 (to try higher mutation r8) //0.05 (after mutation was changed to fixed amount) //0.03 (tried after mutation was fixed); //0.05 (never tried); //0 (og, got 210);
-const MUTATION_AMOUNT = 0.1; //0.25 //0.1 //0.1 //0.1 //0.05; //0.2; //0;
+const MUTATION_RATE = 0.5; // 0.5 (going ham on split mut and cross)// 0.1 (splitting up mutation and crossover) //0.05 (trying out big changes with 100 agents per gen) //0.05 //0.2 (to try higher mutation r8) //0.05 (after mutation was changed to fixed amount) //0.03 (tried after mutation was fixed); //0.05 (never tried); //0 (og, got 210);
+const MUTATION_AMOUNT = 0.2; // 0.2 // 0.2 //0.25 //0.1 //0.1 //0.1 //0.05; //0.2; //0;
 const AGENTS_PER_GEN = 30;
 const BREEDABLE_AGENTS_RATIO = 1/3; //1/20 //1/6 (5/30); //1/3; //1/6;
 const BREEDABLE_AGENTS_PER_GEN = Math.floor(AGENTS_PER_GEN * BREEDABLE_AGENTS_RATIO);
@@ -324,12 +367,16 @@ async function trainingLoop(currentAgents) {
         printGenerationSummary(bestAgents, currentAgents);
         currentAgents = Array.from(bestAgents);
         for (let childNum = 0; childNum < CHILDREN_PER_GEN; childNum ++) {
-            let parent1 = randomChoice(bestAgents);
-            let parent2 = randomChoice(bestAgents);
-            while (parent2 == parent1) { //make sure parents aren't the same
-                parent2 = randomChoice(bestAgents);
+            if (Math.random() < 0.5) {
+                let parent1 = randomChoice(bestAgents);
+                let parent2 = randomChoice(bestAgents);
+                while (parent2 == parent1) { //make sure parents aren't the same
+                    parent2 = randomChoice(bestAgents);
+                }
+                currentAgents.push(parent1.breed(parent2, MUTATION_RATE, MUTATION_AMOUNT));
+            } else {
+                currentAgents.push(randomChoice(bestAgents).mutate(MUTATION_RATE, MUTATION_AMOUNT))
             }
-            currentAgents.push(parent1.breed(parent2, MUTATION_RATE, MUTATION_AMOUNT));
         }
         generation ++;
     }
