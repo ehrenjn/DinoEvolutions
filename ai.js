@@ -298,7 +298,7 @@ const BYTES_PER_PIXEL = 4;
 const ALPHA_CHANNEL_BYTE = 3; //last byte of 4 pixel bytes is the alpha channel
 const RESOLUTION_DIVISION = 3; //dino sees 3x3 = 9x less pixels than the game contains
 
-const MUTATION_RATE = 0.5; // 0.5 (going ham on split mut and cross)// 0.1 (splitting up mutation and crossover) //0.05 (trying out big changes with 100 agents per gen) //0.05 //0.2 (to try higher mutation r8) //0.05 (after mutation was changed to fixed amount) //0.03 (tried after mutation was fixed); //0.05 (never tried); //0 (og, got 210);
+const MUTATION_RATE = 1.0; // 1.0 (going even more ham on mutation) // 0.5 (going ham on split mut and cross)// 0.1 (splitting up mutation and crossover) //0.05 (trying out big changes with 100 agents per gen) //0.05 //0.2 (to try higher mutation r8) //0.05 (after mutation was changed to fixed amount) //0.03 (tried after mutation was fixed); //0.05 (never tried); //0 (og, got 210);
 const MUTATION_AMOUNT = 0.2; // 0.2 // 0.2 //0.25 //0.1 //0.1 //0.1 //0.05; //0.2; //0;
 const AGENTS_PER_GEN = 30;
 const BREEDABLE_AGENTS_RATIO = 1/3; //1/20 //1/6 (5/30); //1/3; //1/6;
