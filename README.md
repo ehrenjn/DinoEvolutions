@@ -17,14 +17,18 @@ It should take about 8 hours (or ~30 generations) for the dinos to get "pretty g
 
 ## Strategy
 
-The basic idea is to train a dense neural net through crossover and mutation rather than backprop  
+The basic idea is to train a dense neural net through crossover and mutation rather than backprop. 
 The input to the network are the pixels in the canvas, and it has 3 outputs (down, up, and do nothing)  
-Every 0.1 seconds the pixel data is fed into the network  
-The output with the highest value is chosen as the next action (eg, if the the down output is 1, up is 2, and do nothing is 1.5 then the dino will press up)  
-  
+
+Every 0.1 seconds the pixel data is fed into the network, and the output with the highest value is chosen as the next action (eg, if the the down output is 1, up is 2, and do nothing is 1.5 then the dino will press up)  
+
+
+### network shape
 The network only has a single layer because that way you can think of each weight as how much each individual pixel contributes to each action (eg, "if this pixel is black then I should probably jump"), and the dinos *should* be able to know when to jump just based off of a few pixels (theres not really any abstract features to read)  
+
 Another reason for only having one layer is that performing crossover on the weights will only work if each parent dino's weights represent the same thing. If there was a 2nd layer, then two parent dinos could be "seeing" exact the same feature in the 2nd layer, however the weights for that feature could be connected to a different middle layer neuron on each dino, and then crossing over would combine two unrelated features, resulting in a garbage dino child (there are ways around like like crossing over groups of weights but it seemed overly complex for this simple a task)
 
+### training
 In the first generation 30 dinos are randomly generated
 During every subsequent generation:
 - the 10 best dinos "survive" (they compete again in the next generation)
